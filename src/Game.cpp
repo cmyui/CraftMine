@@ -132,6 +132,10 @@ void Game::run() {
         deltaTime = currentTime - lastFrame;
         lastFrame = currentTime;
 
+        if (attackCooldownTimer > 0.0f) {
+            attackCooldownTimer -= deltaTime;
+        }
+
         accumulator += deltaTime;
 
 
@@ -148,10 +152,12 @@ void Game::run() {
                     continue;
                 }
             }
-            // Update player physics
-            player->Update(timeStep);
+            // Update player physics (skip when dead)
+            if (!player->dead) {
+                player->Update(timeStep);
+            }
 
-            if (multiplayerMode && network != nullptr && network->isConnected()) {
+            if (multiplayerMode && !player->dead && network != nullptr && network->isConnected()) {
                 positionSendTimer += timeStep;
                 if (positionSendTimer >= 0.05f) {
                     std::vector<uint8_t> posPayload = PacketSerializer::serializePlayerPosition(
@@ -286,6 +292,7 @@ void Game::processNetworkPackets() {
                     player->position = glm::vec3(ack.spawnX, ack.spawnY, ack.spawnZ);
                     player->lastPosition = player->position;
                     player->camera.position = player->position;
+                    player->health = ack.health;
                     newChunkPos = glm::ivec2(player->position.x / Chunk::SIZE, player->position.z / Chunk::SIZE);
                     lastChunkPos = newChunkPos;
                     world->UpdateViewDistance(newChunkPos);
@@ -380,6 +387,83 @@ void Game::processNetworkPackets() {
                 }
                 break;
             }
+            case PacketType::S2C_HEALTH_UPDATE: {
+                HealthUpdatePayload hp;
+                if (PacketSerializer::deserializeHealthUpdate(pkt.payload, hp)) {
+                    if (hp.playerId == localPlayerId) {
+                        player->health = hp.health;
+                    } else {
+                        auto it = remotePlayers.find(hp.playerId);
+                        if (it != remotePlayers.end()) {
+                            it->second.health = hp.health;
+                        }
+                    }
+                }
+                break;
+            }
+            case PacketType::S2C_PLAYER_DIED: {
+                PlayerDiedPayload died;
+                if (PacketSerializer::deserializePlayerDied(pkt.payload, died)) {
+                    // Look up usernames
+                    std::string victimName;
+                    std::string killerName;
+
+                    if (died.playerId == localPlayerId) {
+                        victimName = "You";
+                    } else {
+                        auto it = remotePlayers.find(died.playerId);
+                        victimName = (it != remotePlayers.end()) ? it->second.username : "???";
+                    }
+
+                    if (died.killerId == localPlayerId) {
+                        killerName = "You";
+                    } else {
+                        auto it = remotePlayers.find(died.killerId);
+                        killerName = (it != remotePlayers.end()) ? it->second.username : "???";
+                    }
+
+                    // Mark remote player as dead
+                    if (died.playerId != localPlayerId) {
+                        auto it = remotePlayers.find(died.playerId);
+                        if (it != remotePlayers.end()) {
+                            it->second.dead = true;
+                        }
+                    }
+
+                    // Death messages
+                    if (died.playerId == localPlayerId) {
+                        player->dead = true;
+                        chat->addMessage("", "You were killed by " + killerName);
+                    } else if (died.killerId == localPlayerId) {
+                        chat->addMessage("", "You killed " + victimName);
+                    } else {
+                        chat->addMessage("", victimName + " was killed by " + killerName);
+                    }
+                }
+                break;
+            }
+            case PacketType::S2C_PLAYER_RESPAWN: {
+                PlayerRespawnPayload respawn;
+                if (PacketSerializer::deserializePlayerRespawn(pkt.payload, respawn)) {
+                    if (respawn.playerId == localPlayerId) {
+                        player->dead = false;
+                        player->health = 20.0f;
+                        player->position = glm::vec3(respawn.x, respawn.y, respawn.z);
+                        player->lastPosition = player->position;
+                        player->camera.position = player->position;
+                        player->playerVelocity = glm::vec3(0.0f);
+                    } else {
+                        auto it = remotePlayers.find(respawn.playerId);
+                        if (it != remotePlayers.end()) {
+                            it->second.position = glm::vec3(respawn.x, respawn.y, respawn.z);
+                            it->second.lastPosition = it->second.position;
+                            it->second.health = 20.0f;
+                            it->second.dead = false;
+                        }
+                    }
+                }
+                break;
+            }
             case PacketType::S2C_PONG: {
                 break;
             }
@@ -389,6 +473,34 @@ void Game::processNetworkPackets() {
                 break;
         }
     }
+}
+
+uint32_t Game::raycastPlayerHit(float reach) {
+    glm::vec3 origin = camera->position;
+    glm::vec3 dir = camera->Front;
+    const float step = 0.05f;
+    int steps = static_cast<int>(reach / step);
+
+    for (int i = 0; i <= steps; i++) {
+        glm::vec3 point = origin + dir * (step * i);
+        for (auto it = remotePlayers.begin(); it != remotePlayers.end(); ++it) {
+            const RemotePlayer& rp = it->second;
+            // AABB: position is at head/eye level, box extends 1.75 downward
+            float minX = rp.position.x - 0.3f;
+            float maxX = rp.position.x + 0.3f;
+            float minY = rp.position.y - 1.75f;
+            float maxY = rp.position.y;
+            float minZ = rp.position.z - 0.3f;
+            float maxZ = rp.position.z + 0.3f;
+
+            if (point.x >= minX && point.x <= maxX &&
+                point.y >= minY && point.y <= maxY &&
+                point.z >= minZ && point.z <= maxZ) {
+                return it->first;
+            }
+        }
+    }
+    return 0;
 }
 
 int Game::currentWidth = 0;

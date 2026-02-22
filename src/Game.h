@@ -47,6 +47,8 @@ public:
     std::unordered_map<uint32_t, RemotePlayer> remotePlayers;
     uint32_t localPlayerId = 0;
     float positionSendTimer = 0.0f;
+    float attackCooldownTimer = 0.0f;
+    uint32_t raycastPlayerHit(float reach);
     static int currentWidth;
     static int currentHeight;
 

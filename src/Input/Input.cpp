@@ -4,6 +4,7 @@
 
 #include "Input.h"
 #include "Player/Chat.h"
+#include "Network/PacketTypes.h"
 
 Input::Input(Camera& _camera, World& _world, SceneRenderer& _scene, Player& _player, Game& _game) : lastX(1280 / 2.0f), lastY(720 / 2.0f),
                                                                                             camera(_camera), world(_world), scene(_scene), player(_player), game(_game), firstMouse(true) {}
@@ -52,10 +53,20 @@ void Input::scroll_callback(GLFWwindow* window, const double xoffset, const doub
 }
 
 void Input::mouseButtonCallback(GLFWwindow* window, const int button, const int action, int mods) {
+    if (player.dead) return;
+
     if(button == GLFW_MOUSE_BUTTON_LEFT && !scene.inventoryOpen){
         if(action == GLFW_PRESS && isCursorLocked)
         {
-            world.BreakBlocks(camera.position, camera.Front);
+            bool brokeBlock = world.BreakBlocks(camera.position, camera.Front);
+            if (!brokeBlock && game.multiplayerMode && game.attackCooldownTimer <= 0.0f) {
+                uint32_t hitId = game.raycastPlayerHit(5.0f);
+                if (hitId != 0) {
+                    std::vector<uint8_t> payload = PacketSerializer::serializeAttack(hitId);
+                    game.network->sendPacket(PacketType::C2S_ATTACK, payload);
+                    game.attackCooldownTimer = 0.5f;
+                }
+            }
         }
         else{
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -140,6 +151,8 @@ void Input::char_callback(GLFWwindow* window, unsigned int codepoint) {
 }
 
 void Input::processKey(const int key, const int action, GLFWwindow* window) {
+    if (player.dead) return;
+
     // When chat is active, forward specific keys to chat and suppress game keys
     if (chat != nullptr && chat->isInputActive()) {
         if (key == GLFW_KEY_ENTER || key == GLFW_KEY_ESCAPE || key == GLFW_KEY_BACKSPACE) {
@@ -294,7 +307,8 @@ void Input::processKey(const int key, const int action, GLFWwindow* window) {
 }
 void Input::processInput(GLFWwindow* window, bool* wireframe, bool* keyProccessed, bool* _isFullscreen, Player& player, World& world, const float& deltaTime, SceneRenderer& scene, Chat* chat)
 {
-    // Skip movement input when chat is active
+    // Skip movement input when dead or chat is active
+    if (player.dead) return;
     if (chat != nullptr && chat->isInputActive()) return;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)

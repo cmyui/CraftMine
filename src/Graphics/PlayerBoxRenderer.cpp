@@ -70,12 +70,21 @@ void PlayerBoxRenderer::render(const std::unordered_map<uint32_t, RemotePlayer>&
     shader->use();
     shader->setMat4("view", view);
     shader->setMat4("projection", proj);
-    shader->setVec3("playerColor", glm::vec3(0.2f, 0.6f, 1.0f));
 
     glBindVertexArray(vao);
     for (const auto& pair : players) {
         const RemotePlayer& rp = pair.second;
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), rp.position - glm::vec3(0.0f, 1.75f, 0.0f));
+        glm::vec3 basePos = rp.position - glm::vec3(0.0f, 1.75f, 0.0f);
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), basePos);
+
+        if (rp.dead) {
+            // Flatten to ground: scale Y to ~0.1, keep X/Z
+            model = glm::scale(model, glm::vec3(1.0f, 0.05f, 1.0f));
+            shader->setVec3("playerColor", glm::vec3(0.8f, 0.1f, 0.1f));
+        } else {
+            shader->setVec3("playerColor", glm::vec3(0.2f, 0.6f, 1.0f));
+        }
+
         shader->setMat4("model", model);
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
     }

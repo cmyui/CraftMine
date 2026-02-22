@@ -27,6 +27,10 @@ namespace PacketType {
     static const uint8_t C2S_REQUEST_CHUNK = 0x31;
     static const uint8_t C2S_CHAT_MESSAGE = 0x40;
     static const uint8_t S2C_CHAT_MESSAGE = 0x41;
+    static const uint8_t C2S_ATTACK = 0x50;
+    static const uint8_t S2C_HEALTH_UPDATE = 0x51;
+    static const uint8_t S2C_PLAYER_DIED = 0x52;
+    static const uint8_t S2C_PLAYER_RESPAWN = 0x53;
     static const uint8_t C2S_PING = 0x70;
     static const uint8_t S2C_PONG = 0x71;
 }
@@ -90,6 +94,25 @@ struct ChatMessagePayload {
     uint32_t playerId;
     std::string username;
     std::string message;
+};
+
+struct AttackPayload {
+    uint32_t targetId;
+};
+
+struct HealthUpdatePayload {
+    uint32_t playerId;
+    float health;
+};
+
+struct PlayerDiedPayload {
+    uint32_t playerId;
+    uint32_t killerId;
+};
+
+struct PlayerRespawnPayload {
+    uint32_t playerId;
+    float x, y, z;
 };
 
 namespace PacketSerializer {
@@ -275,6 +298,47 @@ inline bool deserializeChatMessage(const std::vector<uint8_t>& payload, ChatMess
     uint8_t msgLen = payload[offset];
     if (payload.size() < offset + 1 + msgLen) return false;
     out.message = std::string(payload.begin() + offset + 1, payload.begin() + offset + 1 + msgLen);
+    return true;
+}
+
+inline std::vector<uint8_t> serializeAttack(uint32_t targetId) {
+    std::vector<uint8_t> payload(4);
+    uint32_t nId = htonl(targetId);
+    std::memcpy(payload.data(), &nId, 4);
+    return payload;
+}
+
+inline bool deserializeHealthUpdate(const std::vector<uint8_t>& payload, HealthUpdatePayload& out) {
+    if (payload.size() < 8) return false;
+    uint32_t rawId, rawH;
+    std::memcpy(&rawId, payload.data(), 4);
+    std::memcpy(&rawH, payload.data() + 4, 4);
+    out.playerId = ntohl(rawId);
+    out.health = ntohf(rawH);
+    return true;
+}
+
+inline bool deserializePlayerDied(const std::vector<uint8_t>& payload, PlayerDiedPayload& out) {
+    if (payload.size() < 8) return false;
+    uint32_t rawPlayer, rawKiller;
+    std::memcpy(&rawPlayer, payload.data(), 4);
+    std::memcpy(&rawKiller, payload.data() + 4, 4);
+    out.playerId = ntohl(rawPlayer);
+    out.killerId = ntohl(rawKiller);
+    return true;
+}
+
+inline bool deserializePlayerRespawn(const std::vector<uint8_t>& payload, PlayerRespawnPayload& out) {
+    if (payload.size() < 16) return false;
+    uint32_t rawId, rawX, rawY, rawZ;
+    std::memcpy(&rawId, payload.data(), 4);
+    std::memcpy(&rawX, payload.data() + 4, 4);
+    std::memcpy(&rawY, payload.data() + 8, 4);
+    std::memcpy(&rawZ, payload.data() + 12, 4);
+    out.playerId = ntohl(rawId);
+    out.x = ntohf(rawX);
+    out.y = ntohf(rawY);
+    out.z = ntohf(rawZ);
     return true;
 }
 

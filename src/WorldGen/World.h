@@ -78,7 +78,7 @@ public:
 
     void PlaceBlocks(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) const;
 
-    void BreakBlocks(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) const;
+    bool BreakBlocks(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) const;
 
     void renderChunksToNormalShaders() const;
 

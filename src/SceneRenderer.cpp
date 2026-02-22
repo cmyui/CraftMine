@@ -446,6 +446,25 @@ void SceneRenderer::renderGUI() const{
         }
     }
 
+    // Render health display
+    if (textRenderer != nullptr) {
+        textRenderer->setScreenDimensions(Game::currentWidth, Game::currentHeight);
+
+        int hp = static_cast<int>(player.health);
+        std::string healthText = "HP: " + std::to_string(hp) + "/20";
+        textRenderer->renderText(healthText, 10.0f, Game::currentHeight - 30.0f,
+                                 glm::vec3(1.0f, 0.3f, 0.3f), 1.0f);
+
+        if (player.dead) {
+            float deathScale = 3.0f;
+            std::string deathText = "You died! Respawning...";
+            float textWidth = textRenderer->measureTextWidth(deathText, deathScale);
+            float x = (Game::currentWidth - textWidth) / 2.0f;
+            float y = Game::currentHeight / 2.0f;
+            textRenderer->renderText(deathText, x, y, glm::vec3(1.0f, 0.2f, 0.2f), 1.0f, deathScale);
+        }
+    }
+
     // Render chat overlay
     if (textRenderer != nullptr && chatPtr != nullptr) {
         textRenderer->setScreenDimensions(Game::currentWidth, Game::currentHeight);

@@ -33,6 +33,9 @@ public:
     Toolbar* toolbar;
     Inventory* inventory;
 
+    float health = 20.0f;
+    bool dead = false;
+
     bool shiftChanged = false;
     bool isJumping{};
     bool isGrounded{};

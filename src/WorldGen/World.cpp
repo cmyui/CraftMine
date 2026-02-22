@@ -265,7 +265,7 @@ void World::PlaceBlocks(const glm::vec3& rayOrigin, const glm::vec3& rayDirectio
         }
     }
 }
-void World::BreakBlocks(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) const{
+bool World::BreakBlocks(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) const{
 
     glm::ivec3 localPos;
     Chunk* currentChunk;
@@ -310,8 +310,9 @@ void World::BreakBlocks(const glm::vec3& rayOrigin, const glm::vec3& rayDirectio
         {
             WorldThreading::updateLoadData(tempChunk2);
         }
+        return true;
     }
-
+    return false;
 }
 
 void World::LoadThreadDataToMain()

@@ -11,8 +11,10 @@ struct RemotePlayer {
     float yaw;
     float pitch;
     float interpTimer;
+    float health;
+    bool dead;
 
-    RemotePlayer() : id(0), yaw(0), pitch(0), interpTimer(0) {}
+    RemotePlayer() : id(0), yaw(0), pitch(0), interpTimer(0), health(20.0f), dead(false) {}
     RemotePlayer(uint32_t id, const std::string& username, glm::vec3 pos, float yaw, float pitch)
-        : id(id), username(username), position(pos), lastPosition(pos), yaw(yaw), pitch(pitch), interpTimer(0) {}
+        : id(id), username(username), position(pos), lastPosition(pos), yaw(yaw), pitch(pitch), interpTimer(0), health(20.0f), dead(false) {}
 };

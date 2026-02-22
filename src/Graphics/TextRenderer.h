@@ -14,9 +14,9 @@ public:
     ~TextRenderer();
 
     void renderText(const std::string& text, float x, float y,
-                    const glm::vec3& color, float alpha);
+                    const glm::vec3& color, float alpha, float scale = 1.0f);
     void setScreenDimensions(int width, int height);
-    float measureTextWidth(const std::string& text) const;
+    float measureTextWidth(const std::string& text, float scale = 1.0f) const;
 
 private:
     static const int ATLAS_WIDTH = 512;

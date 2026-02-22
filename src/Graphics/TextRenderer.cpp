@@ -70,7 +70,7 @@ void TextRenderer::setScreenDimensions(int width, int height) {
                              static_cast<float>(height), 0.0f);
 }
 
-float TextRenderer::measureTextWidth(const std::string& text) const {
+float TextRenderer::measureTextWidth(const std::string& text, float scale) const {
     float width = 0.0f;
     for (size_t i = 0; i < text.size(); i++) {
         unsigned char c = static_cast<unsigned char>(text[i]);
@@ -78,11 +78,11 @@ float TextRenderer::measureTextWidth(const std::string& text) const {
         const stbtt_bakedchar& bc = charData[c - FIRST_CHAR];
         width += bc.xadvance;
     }
-    return width;
+    return width * scale;
 }
 
 void TextRenderer::renderText(const std::string& text, float x, float y,
-                               const glm::vec3& color, float alpha) {
+                               const glm::vec3& color, float alpha, float scale) {
     if (!shaderProgram || text.empty()) return;
 
     glUseProgram(shaderProgram);
@@ -102,8 +102,8 @@ void TextRenderer::renderText(const std::string& text, float x, float y,
     std::vector<float> vertices;
     vertices.reserve(text.size() * 6 * 4);
 
-    float curX = x;
-    float curY = y;
+    float curX = 0.0f;
+    float curY = 0.0f;
 
     for (size_t i = 0; i < text.size(); i++) {
         unsigned char c = static_cast<unsigned char>(text[i]);
@@ -113,15 +113,15 @@ void TextRenderer::renderText(const std::string& text, float x, float y,
         stbtt_GetBakedQuad(charData, ATLAS_WIDTH, ATLAS_HEIGHT,
                            c - FIRST_CHAR, &curX, &curY, &q, 1);
 
-        // Two triangles per glyph
+        // Scale positions relative to origin, then offset to (x, y)
         float verts[] = {
-            q.x0, q.y0, q.s0, q.t0,
-            q.x1, q.y0, q.s1, q.t0,
-            q.x1, q.y1, q.s1, q.t1,
+            q.x0 * scale + x, q.y0 * scale + y, q.s0, q.t0,
+            q.x1 * scale + x, q.y0 * scale + y, q.s1, q.t0,
+            q.x1 * scale + x, q.y1 * scale + y, q.s1, q.t1,
 
-            q.x0, q.y0, q.s0, q.t0,
-            q.x1, q.y1, q.s1, q.t1,
-            q.x0, q.y1, q.s0, q.t1,
+            q.x0 * scale + x, q.y0 * scale + y, q.s0, q.t0,
+            q.x1 * scale + x, q.y1 * scale + y, q.s1, q.t1,
+            q.x0 * scale + x, q.y1 * scale + y, q.s0, q.t1,
         };
         vertices.insert(vertices.end(), verts, verts + 24);
     }
